@@ -27,7 +27,12 @@ class Contenedor{
     }
 
     async saveNew(productoNuevo){
+        let id;
         const contenido = await this.getAll()
+        contenido.length==0 ?
+        id = 1 :
+        id =contenido.length + 1
+        productoNuevo["id"]=id
         // buscamos el id más grande
         contenido.push(productoNuevo)
         this.save(contenido)
@@ -37,8 +42,6 @@ class Contenedor{
     async getAll(){
         try {
             const contenido = await fs.promises.readFile(this.nombreArchivo, 'utf-8')
-            //console.log(JSON.parse(contenido))
-            //console.log(JSON.parse(contenido).length)
             return JSON.parse(contenido)
         } catch (error) {
             
@@ -56,14 +59,22 @@ class Contenedor{
         }
     }
 
-    async put(id) {
-        const contenido = await this.getAll()
-        const productoBuscado = contenido.find(producto => producto.id === id)
-        if (!productoBuscado){
-            return null
-        } else {
-            console.log(productoBuscado)
-            return productoBuscado
+    async put(id, producto) {
+        try {
+            const contenido = await this.getAll();
+            const index = contenido.findIndex(prod => prod.id === prod.id);
+            if(index >= 0){
+                contenido.splice(index,1,{...producto, id});
+                this.itemList = contenido;
+                return producto;
+            }else{
+                console.log(`Producto con id: ${producto.id} no existe`)
+                return null;
+            }      
+        }
+        catch (err) {
+            console.log("No se encontró un producto con ese id");
+            return err;
         }
     }
 
@@ -91,16 +102,11 @@ routerProductos.get("/", async (req,res)=>{
     res.json({ mostrarProductos });
 })
 
-routerProductos.post("/", async (req,res)=>{
-    const mostrarProductos = await contenedor.getAll()
-    mostrarProductos.length==0 ?
-    id = 1 :
-    id =mostrarProductos.length + 1 
+routerProductos.post("/", (req,res)=>{
     productoEjemplo = {
         title: req.body.title,                                                                                                                                 
         price: parseFloat(req.body.price),                                                                                                                                     
-        thumbnail: req.body.thumbnail,                                     
-        id: id
+        thumbnail: req.body.thumbnail
     }
     contenedor.saveNew(productoEjemplo)
     res.json({ productoEjemplo });
@@ -113,13 +119,11 @@ routerProductos.get("/:id", async (req,res)=>{
     res.json({ productoEliminado });          
 })
 
-routerProductos.put("/:id", async (req,res)=>{
-    const productoActualizado = await contenedor.put(parseInt(req.params.id))
-    if (productoActualizado==null) {
-        res.json({ error : 'producto no encontrado' })
-    }else{
-        res.json({ productoActualizado })      
-    }
+routerProductos.put('/:id', async (req,res) =>{
+    const {title, price, thumbnail} = req.body;
+    const id = await contenedor.put(Number(req.params.id),
+    {title, price, thumbnail});
+    res.json(id)
 })
 
 routerProductos.post("/:id", async (req,res)=>{
@@ -128,10 +132,13 @@ routerProductos.post("/:id", async (req,res)=>{
 })
 
 routerProductos.delete("/:id", async (req,res)=>{
-    const productoEncontrado = await contenedor.deleteById(parseInt(req.params.id))
-    productoEncontrado==null ?
-    res.json({ error : 'producto no encontrado' }) : 
-    res.json({ productoEliminado: productoEncontrado });
+    const productoEncontrado = await contenedor.getById(parseInt(req.params.id))
+    if (productoEncontrado==null) {
+        res.json({ error : 'producto no encontrado' })  
+    }else{
+        contenedor.deleteById(parseInt(req.params.id))
+        res.json({ productoEliminado: productoEncontrado });
+    }    
 })
 
 
